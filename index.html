@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Universe Viewer v1.2</title>
+    <title>3D Universe Viewer v1.12 - Nhiều vành đai tinh vân</title>
     <style>
         * {
             margin: 0;
@@ -132,7 +132,7 @@
 
         <div class="info-panel">
             <h3>Vũ trụ 3D</h3>
-            <p>Sao: <span id="star-count">50,000</span></p>
+            <p>Tổng hạt: <span id="star-count">0</span></p>
             <p>Khoảng cách: <span id="distance">1,000</span> ly</p>
             <p>Tốc độ: <span id="speed">1x</span></p>
             <p>Trạng thái: <span id="status">Đang xoay</span></p>
@@ -146,8 +146,10 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        let scene, camera, renderer, composer;
-        let starField, nebula, galaxyCore;
+        let scene, camera, renderer;
+        let starField;
+        let nebulaRings = []; // Use an array to store multiple nebula rings
+        let galaxyCore;
         let animationId;
         let isPaused = false;
         let autoRotationSpeed = 0.001;
@@ -155,10 +157,27 @@
         let cameraAngle = 0;
         let starTexture;
         
-        // Thêm biến cho bloom effect
-        let bloomPass, renderScene;
+        // Variables for bloom effect
+        let renderTarget, bloomMaterial, bloomScene, bloomCamera;
+        const BLOOM_STRENGTH = 2.5; 
 
-        // Import các shader cần thiết
+        // Animation Camera variables
+        let clock;
+        const animationPhases = {
+            ZOOM_OUT_1: 'ZOOM_OUT_1',
+            PAUSE_1: 'PAUSE_1',
+            ZOOM_IN_TO_CORE: 'ZOOM_IN_TO_CORE',
+            PAUSE_2: 'PAUSE_2',
+            ZOOM_OUT_2: 'ZOOM_OUT_2',
+            COMPLETE: 'COMPLETE'
+        };
+        let currentPhase = animationPhases.ZOOM_OUT_1;
+        let phaseStartTime = 0;
+        let isIntroAnimationActive = true;
+        let userInteracted = false;
+        let totalParticleCount = 0;
+
+        // Required shaders
         const vertexShader = 
             'varying vec2 vUv;' +
             'void main() {' +
@@ -177,11 +196,14 @@
             '}';
 
         function init() {
+            // Initialize scene and other components
             scene = new THREE.Scene();
             scene.fog = new THREE.Fog(0x000000, 1000, 10000);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 10000);
-            camera.position.set(0, 0, 1000);
+            camera.position.set(0, 0, 2000);
+
+            clock = new THREE.Clock();
 
             renderer = new THREE.WebGLRenderer({ 
                 antialias: true,
@@ -192,12 +214,12 @@
             renderer.autoClear = false;
             document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-            // Thiết lập bloom effect
+            // Set up bloom effect once
             setupBloomEffect();
 
             createStarField();
-            createNebula();
             createGalaxyCore();
+            createMultipleNebulaRings(); // Create multiple nebula rings
 
             const ambientLight = new THREE.AmbientLight(0x404040, 0.2);
             scene.add(ambientLight);
@@ -207,12 +229,14 @@
             scene.add(pointLight);
 
             setupControls();
+            // Start the animation loop
             animate();
+            updateParticleCountDisplay();
         }
 
+        // Initialize objects for bloom effect
         function setupBloomEffect() {
-            // Tạo render target với HDR
-            const renderTarget = new THREE.WebGLRenderTarget(
+            renderTarget = new THREE.WebGLRenderTarget(
                 window.innerWidth,
                 window.innerHeight,
                 {
@@ -223,35 +247,108 @@
                 }
             );
 
-            // Shader material cho bloom effect
-            const bloomMaterial = new THREE.ShaderMaterial({
+            bloomMaterial = new THREE.ShaderMaterial({
                 uniforms: {
                     baseTexture: { value: null },
-                    bloomStrength: { value: 1.5 }
+                    bloomStrength: { value: BLOOM_STRENGTH }
                 },
                 vertexShader: vertexShader,
                 fragmentShader: fragmentShader,
                 defines: {}
             });
 
-            // Tạo mesh cho post-processing
             const bloomGeometry = new THREE.PlaneGeometry(2, 2);
             const bloomMesh = new THREE.Mesh(bloomGeometry, bloomMaterial);
             bloomMesh.frustumCulled = false;
             
-            // Scene riêng cho bloom effect
-            const bloomScene = new THREE.Scene();
+            bloomScene = new THREE.Scene();
             bloomScene.add(bloomMesh);
 
-            // Camera ortho cho post-processing
-            const bloomCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+            bloomCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+        }
 
-            return { renderTarget, bloomMaterial, bloomScene, bloomCamera };
+        function updateCameraAnimation() {
+            if (!isIntroAnimationActive || userInteracted) {
+                return;
+            }
+
+            const elapsedTime = clock.getElapsedTime() - phaseStartTime;
+
+            switch (currentPhase) {
+                case animationPhases.ZOOM_OUT_1:
+                    if (elapsedTime < 3) {
+                        const progress = elapsedTime / 3;
+                        const easeProgress = 1 - Math.pow(1 - progress, 3);
+                        camera.position.z = 2000 - (1000 * easeProgress);
+                        cameraRadius = camera.position.z;
+                        updateDistance();
+                    } else {
+                        camera.position.z = 1000;
+                        cameraRadius = 1000;
+                        currentPhase = animationPhases.PAUSE_1;
+                        phaseStartTime = clock.getElapsedTime();
+                        document.getElementById('status').textContent = 'Tạm dừng 1';
+                    }
+                    break;
+
+                case animationPhases.PAUSE_1:
+                    if (elapsedTime >= 2) {
+                        currentPhase = animationPhases.ZOOM_IN_TO_CORE;
+                        phaseStartTime = clock.getElapsedTime();
+                        document.getElementById('status').textContent = 'Zoom vào lõi';
+                    }
+                    break;
+
+                case animationPhases.ZOOM_IN_TO_CORE:
+                    if (elapsedTime < 4) {
+                        const progress = elapsedTime / 4;
+                        const easeProgress = progress * progress * (3 - 2 * progress);
+                        camera.position.z = 1000 - (700 * easeProgress);
+                        cameraRadius = camera.position.z;
+                        updateDistance();
+                    } else {
+                        camera.position.z = 300;
+                        cameraRadius = 300;
+                        currentPhase = animationPhases.PAUSE_2;
+                        phaseStartTime = clock.getElapsedTime();
+                        document.getElementById('status').textContent = 'Tạm dừng 2';
+                    }
+                    break;
+
+                case animationPhases.PAUSE_2:
+                    if (elapsedTime >= 2) {
+                        currentPhase = animationPhases.ZOOM_OUT_2;
+                        phaseStartTime = clock.getElapsedTime();
+                        document.getElementById('status').textContent = 'Zoom ra';
+                    }
+                    break;
+
+                case animationPhases.ZOOM_OUT_2:
+                    if (elapsedTime < 3) {
+                        const progress = elapsedTime / 3;
+                        const easeProgress = progress * progress * (3 - 2 * progress);
+                        camera.position.z = 300 + (500 * easeProgress);
+                        cameraRadius = camera.position.z;
+                        updateDistance();
+                    } else {
+                        camera.position.z = 800;
+                        cameraRadius = 800;
+                        currentPhase = animationPhases.COMPLETE;
+                        isIntroAnimationActive = false;
+                        document.getElementById('status').textContent = 'Đang xoay';
+                    }
+                    break;
+            }
+
+            camera.position.x = Math.cos(cameraAngle) * cameraRadius;
+            camera.position.z = Math.sin(cameraAngle) * cameraRadius;
+            camera.lookAt(0, 0, 0);
         }
 
         function createStarField() {
             const starGeometry = new THREE.BufferGeometry();
             const starCount = 50000;
+            totalParticleCount += starCount;
             
             const positions = new Float32Array(starCount * 3);
             const colors = new Float32Array(starCount * 3);
@@ -260,37 +357,22 @@
             for (let i = 0; i < starCount; i++) {
                 let radius, theta, phi;
                 
-                if (i < starCount * 0.8) {  // 80% sao trong khối cầu đặc
-                    radius = Math.pow(Math.random(), 0.15) * 800;
-                    theta = Math.random() * Math.PI * 2;
-                    phi = Math.acos(2 * Math.random() - 1);
-                } else {  // 20% sao tạo vành đai tròn đều
-                    radius = 1200;
-                    theta = (i / (starCount * 0.2)) * Math.PI * 2;
-                    phi = Math.PI / 2;
-                }
+                // Phân bố ngôi sao trong một quả cầu lớn
+                radius = Math.pow(Math.random(), 0.15) * 700;
+                theta = Math.random() * Math.PI * 2;
+                phi = Math.acos(2 * Math.random() - 1);
                 
                 positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
                 positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
                 positions[i * 3 + 2] = radius * Math.cos(phi);
 
-                if (i < starCount * 0.8) {
-                    const centerIntensity = Math.pow(1 - (radius / 800), 1.5);
-                    colors[i * 3] = 1.0 + centerIntensity * 0.3;
-                    colors[i * 3 + 1] = 0.2 + centerIntensity * 0.4;
-                    colors[i * 3 + 2] = 0.8 + centerIntensity * 0.4;
-                } else {
-                    colors[i * 3] = 0.9;
-                    colors[i * 3 + 1] = 0.3;
-                    colors[i * 3 + 2] = 0.8;
-                }
+                const centerIntensity = Math.pow(1 - (radius / 800), 1.5);
+                colors[i * 3] = 1.0 + centerIntensity * 0.3;
+                colors[i * 3 + 1] = 0.2 + centerIntensity * 0.4;
+                colors[i * 3 + 2] = 0.8 + centerIntensity * 0.4;
 
-                if (i < starCount * 0.8) {
-                    const centerDist = radius / 800;
-                    sizes[i] = (Math.random() * 4 + 5) * Math.pow(1 - centerDist, 1.2) * 8;
-                } else {
-                    sizes[i] = Math.random() * 2 + 2;
-                }
+                const centerDist = radius / 800;
+                sizes[i] = (Math.random() * 4 + 5) * Math.pow(1 - centerDist, 1.2) * 8;
             }
 
             starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -320,7 +402,7 @@
             );
             
             const starMaterial = new THREE.PointsMaterial({
-                size: 15,
+                size: 20,
                 sizeAttenuation: true,
                 vertexColors: true,
                 blending: THREE.AdditiveBlending,
@@ -335,49 +417,67 @@
             scene.add(starField);
         }
 
-        function createNebula() {
+        // A function to create a single nebula ring
+        function createNebulaRing(innerRadius, outerRadius, particleCount, thickness) {
             const nebulaGeometry = new THREE.BufferGeometry();
-            const nebulaCount = 8000;
-            
-            const positions = new Float32Array(nebulaCount * 3);
-            const colors = new Float32Array(nebulaCount * 3);
-            const sizes = new Float32Array(nebulaCount);
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
 
-            for (let i = 0; i < nebulaCount; i++) {
-                const armAngle = (i / nebulaCount) * Math.PI * 12;
-                const radius = 1000 + (i / nebulaCount) * 2000;
-                const theta = armAngle + Math.random() * 0.5;
-                const phi = (Math.PI / 2) + (Math.random() * 0.2 - 0.1);
+            for (let i = 0; i < particleCount; i++) {
+                const radius = innerRadius + Math.pow(Math.random(), 2) * (outerRadius - innerRadius);
+                const angle = Math.random() * Math.PI * 2;
+                const z = (Math.random() - 0.5) * thickness; 
 
-                positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-                positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-                positions[i * 3 + 2] = radius * Math.cos(phi) * 0.2;
-
-                colors[i * 3] = 0.6 + Math.random() * 0.4;
-                colors[i * 3 + 1] = 0.2 + Math.random() * 0.3;
-                colors[i * 3 + 2] = 0.8 + Math.random() * 0.2;
-
-                sizes[i] = Math.random() * 50 + 20;
+                positions[i * 3] = radius * Math.cos(angle);
+                positions[i * 3 + 1] = radius * Math.sin(angle);
+                positions[i * 3 + 2] = z;
+                
+                const color = new THREE.Color();
+                // Match the core's color scheme (orange/pink)
+                color.setHSL(Math.random() * 0.1 + 0.95, 0.9, Math.random() * 0.5 + 0.5); // HSL for reddish/pinkish colors
+                
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
             }
 
             nebulaGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             nebulaGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
+            
             const nebulaMaterial = new THREE.PointsMaterial({
-                size: 50,
+                size: 20, 
                 sizeAttenuation: true,
                 vertexColors: true,
                 blending: THREE.AdditiveBlending,
                 transparent: true,
-                opacity: 0.3,
-                map: starTexture,
+                opacity: 0.4, 
+                map: starTexture, 
                 alphaTest: 0.01,
                 depthWrite: false
             });
 
-            nebula = new THREE.Points(nebulaGeometry, nebulaMaterial);
-            scene.add(nebula);
+            const nebulaRing = new THREE.Points(nebulaGeometry, nebulaMaterial);
+            return nebulaRing;
         }
+
+        // A function to create multiple nebula rings
+        function createMultipleNebulaRings() {
+            const ringCount = 3;
+            const baseInnerRadius = 800;
+            const baseOuterRadius = 1500;
+            const particleCountPerRing = 100000;
+            const ringThickness = 50;
+
+            for (let i = 0; i < ringCount; i++) {
+                const innerRadius = baseInnerRadius + i * 200;
+                const outerRadius = baseOuterRadius + i * 200;
+                const ring = createNebulaRing(innerRadius, outerRadius, particleCountPerRing, ringThickness);
+                nebulaRings.push(ring);
+                scene.add(ring);
+                totalParticleCount += particleCountPerRing;
+            }
+        }
+
 
         function createGalaxyCore() {
             const coreGeometry = new THREE.SphereGeometry(50, 32, 32);
@@ -408,6 +508,7 @@
 
             galaxyCore = new THREE.Mesh(coreGeometry, coreMaterial);
             scene.add(galaxyCore);
+            totalParticleCount += 1;
         }
 
         function animate() {
@@ -417,6 +518,8 @@
 
             const time = Date.now() * 0.001;
 
+            updateCameraAnimation();
+
             if (galaxyCore && galaxyCore.material.uniforms) {
                 galaxyCore.material.uniforms.time.value = time;
             }
@@ -424,30 +527,28 @@
             if (starField) {
                 starField.rotation.y += 0.0002;
             }
-            if (nebula) {
-                nebula.rotation.y += 0.0005;
-                nebula.rotation.x += 0.0001;
-            }
+
+            nebulaRings.forEach((ring, index) => {
+                ring.rotation.y += 0.0005 * (index + 1); // Make outer rings spin faster
+            });
+            
             if (galaxyCore) {
                 galaxyCore.rotation.y += 0.001;
             }
 
-            if (!isPaused) {
+            if (!isPaused && !isIntroAnimationActive) {
                 cameraAngle += autoRotationSpeed;
                 camera.position.x = Math.cos(cameraAngle) * cameraRadius;
                 camera.position.z = Math.sin(cameraAngle) * cameraRadius;
                 camera.lookAt(0, 0, 0);
             }
 
-            // Render với bloom effect
-            const { renderTarget, bloomMaterial, bloomScene, bloomCamera } = setupBloomEffect();
-            
-            // Render scene vào render target
+            // Render first to the render target
             renderer.setRenderTarget(renderTarget);
             renderer.clear();
             renderer.render(scene, camera);
             
-            // Apply bloom effect
+            // Render second to apply bloom effect
             bloomMaterial.uniforms.baseTexture.value = renderTarget.texture;
             renderer.setRenderTarget(null);
             renderer.clear();
@@ -462,6 +563,8 @@
 
             renderer.domElement.addEventListener('touchstart', (event) => {
                 event.preventDefault();
+                userInteracted = true;
+                isIntroAnimationActive = false;
                 
                 if (event.touches.length === 1) {
                     const touch = event.touches[0];
@@ -491,7 +594,7 @@
                     
                     camera.position.x = Math.cos(cameraAngle) * cameraRadius;
                     camera.position.z = Math.sin(cameraAngle) * cameraRadius;
-                    camera.position.y += verticalAngle * 10;
+                    camera.position.y = Math.max(-500, Math.min(500, camera.position.y + verticalAngle * 50));
                     camera.lookAt(cameraTarget);
 
                     previousMousePosition = { x: touch.clientX, y: touch.clientY };
@@ -529,6 +632,8 @@
 
             renderer.domElement.addEventListener('mousedown', (event) => {
                 if (event.button === 0) {
+                    userInteracted = true;
+                    isIntroAnimationActive = false;
                     isDragging = true;
                     previousMousePosition = { x: event.clientX, y: event.clientY };
                 }
@@ -559,6 +664,9 @@
 
             renderer.domElement.addEventListener('wheel', (event) => {
                 event.preventDefault();
+                userInteracted = true;
+                isIntroAnimationActive = false;
+                
                 const zoomFactor = event.deltaY * 0.001;
                 cameraRadius = Math.max(200, Math.min(3000, cameraRadius + zoomFactor * 100));
                 
@@ -583,7 +691,7 @@
 
         function togglePause() {
             isPaused = !isPaused;
-            document.getElementById('status').textContent = isPaused ? 'Tạm dừng' : 'Đang xoay';
+            document.getElementById('status').textContent = isPaused ? 'Tạm dừng' : (isIntroAnimationActive ? 'Animation' : 'Đang xoay');
             if (!isPaused) {
                 animate();
             }
@@ -593,10 +701,18 @@
             document.getElementById('distance').textContent = Math.round(cameraRadius).toLocaleString();
         }
 
+        function updateParticleCountDisplay() {
+            document.getElementById('star-count').textContent = totalParticleCount.toLocaleString();
+        }
+
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            // Cập nhật lại kích thước của render target
+            if (renderTarget) {
+                renderTarget.setSize(window.innerWidth, window.innerHeight);
+            }
         }
 
         window.addEventListener('resize', onWindowResize);
@@ -617,4 +733,3 @@
     </script>
 </body>
 </html>
-
