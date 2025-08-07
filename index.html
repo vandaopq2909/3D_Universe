@@ -1,736 +1,858 @@
 <!DOCTYPE html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Universe Viewer v1.12</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Universe Viewer v1.13</title>
+    <!-- Tailwind CSS CDN để tạo kiểu dáng cơ bản -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN để tạo hiệu ứng 3D -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Arial", sans-serif;
+        background: #000;
+        overflow: hidden;
+        color: white;
+      }
+
+      #container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      #canvas-container {
+        width: 100%;
+        height: 100%;
+      }
+
+      .controls {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.6);
+        padding: 12px;
+        border-radius: 12px;
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        max-width: 280px;
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .control-item {
+        margin: 4px 0;
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .control-title {
+        color: #fff;
+        font-weight: bold;
+        margin-bottom: 8px;
+        font-size: 14px;
+      }
+
+      .info-panel {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.6);
+        padding: 15px;
+        border-radius: 12px;
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        max-width: 250px;
+        font-size: 14px;
+      }
+
+      .info-panel h3 {
+        margin: 0 0 10px 0;
+        font-size: 16px;
+        color: #fff;
+      }
+
+      .info-panel p {
+        margin: 5px 0;
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .info-panel span {
+        color: #64ffda;
+        font-weight: bold;
+      }
+
+      .loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 200;
+        text-align: center;
+      }
+
+      .spinner {
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top: 2px solid #fff;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
         }
 
-        body {
-            font-family: 'Arial', sans-serif;
-            background: #000;
-            overflow: hidden;
-            color: white;
+        100% {
+          transform: rotate(360deg);
         }
+      }
 
-        #container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-        }
-
-        #canvas-container {
-            width: 100%;
-            height: 100%;
-        }
-
-        .controls {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            z-index: 100;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 12px;
-            border-radius: 12px;
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            max-width: 280px;
-            font-size: 13px;
-            line-height: 1.4;
-        }
-
-        .control-item {
-            margin: 4px 0;
-            color: rgba(255, 255, 255, 0.9);
-        }
-
-        .control-title {
-            color: #fff;
-            font-weight: bold;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-
+      @media (max-width: 768px) {
+        .controls,
         .info-panel {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 100;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 15px;
-            border-radius: 12px;
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            max-width: 250px;
-            font-size: 14px;
+          font-size: 12px;
+          padding: 10px;
         }
-
-        .info-panel h3 {
-            margin: 0 0 10px 0;
-            font-size: 16px;
-            color: #fff;
-        }
-
-        .info-panel p {
-            margin: 5px 0;
-            color: rgba(255, 255, 255, 0.9);
-        }
-
-        .info-panel span {
-            color: #64ffda;
-            font-weight: bold;
-        }
-
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 200;
-            text-align: center;
-        }
-
-        .spinner {
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top: 2px solid #fff;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @media (max-width: 768px) {
-            .controls, .info-panel {
-                font-size: 12px;
-                padding: 10px;
-            }
-        }
+      }
     </style>
-</head>
-<body>
+  </head>
+
+  <body>
     <div id="container">
-        <div id="canvas-container"></div>
+      <div id="canvas-container"></div>
 
-        <div class="controls">
-            <div class="control-title">Điều khiển</div>
-            <div class="control-item">• Chạm/kéo: Xoay</div>
-            <div class="control-item">• Pinch: Zoom</div>
-            <div class="control-item">• Hai ngón: Di chuyển</div>
-            <div class="control-item">• Chạm: Tạm dừng</div>
-        </div>
+      <div class="controls">
+        <div class="control-title">Điều khiển</div>
+        <div class="control-item">• Chạm/kéo: Xoay</div>
+        <div class="control-item">• Pinch: Zoom</div>
+        <div class="control-item">• Hai ngón: Di chuyển</div>
+        <div class="control-item">• Chạm: Tạm dừng</div>
+      </div>
 
-        <div class="info-panel">
-            <h3>Vũ trụ 3D</h3>
-            <p>Tổng hạt: <span id="star-count">0</span></p>
-            <p>Khoảng cách: <span id="distance">1,000</span> ly</p>
-            <p>Tốc độ: <span id="speed">1x</span></p>
-            <p>Trạng thái: <span id="status">Đang xoay</span></p>
-        </div>
+      <div class="info-panel">
+        <h3>Tên Tinh Vân</h3>
+        <p>Tổng hạt: <span id="star-count">0</span></p>
+        <p>Khoảng cách: <span id="distance">1,000</span> ly</p>
+        <p>Tốc độ: <span id="speed">1x</span></p>
+        <p>Trạng thái: <span id="status">Đang xoay</span></p>
+      </div>
 
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Đang tải vũ trụ...</p>
-        </div>
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Đang tải...</p>
+      </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        let scene, camera, renderer;
-        let starField;
-        let nebulaRings = []; // Use an array to store multiple nebula rings
-        let galaxyCore;
-        let animationId;
-        let isPaused = false;
-        let autoRotationSpeed = 0.001;
-        let cameraRadius = 1000;
-        let cameraAngle = 0;
-        let starTexture;
-        
-        // Variables for bloom effect
-        let renderTarget, bloomMaterial, bloomScene, bloomCamera;
-        const BLOOM_STRENGTH = 2.5; 
+      let scene, camera, renderer;
+      let starField;
+      let nebulaRings = []; // Use an array to store multiple nebula rings
+      let textMesh; // Đối tượng văn bản hạt
+      let animationId;
+      let isPaused = false;
+      let autoRotationSpeed = 0.001;
+      let cameraRadius = 200; // Adjusted for text focus
+      let cameraAngle = 0;
+      let starTexture;
 
-        // Animation Camera variables
-        let clock;
-        const animationPhases = {
-            ZOOM_OUT_1: 'ZOOM_OUT_1',
-            PAUSE_1: 'PAUSE_1',
-            ZOOM_IN_TO_CORE: 'ZOOM_IN_TO_CORE',
-            PAUSE_2: 'PAUSE_2',
-            ZOOM_OUT_2: 'ZOOM_OUT_2',
-            COMPLETE: 'COMPLETE'
-        };
-        let currentPhase = animationPhases.ZOOM_OUT_1;
-        let phaseStartTime = 0;
-        let isIntroAnimationActive = true;
-        let userInteracted = false;
-        let totalParticleCount = 0;
+      // Variables for bloom effect
+      let renderTarget, bloomMaterial, bloomScene, bloomCamera;
+      const BLOOM_STRENGTH = 2.5;
 
-        // Required shaders
-        const vertexShader = 
-            'varying vec2 vUv;' +
-            'void main() {' +
-                'vUv = uv;' +
-                'gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);' +
-            '}';
+      // Animation Camera variables
+      let clock;
+      const animationPhases = {
+        ZOOM_OUT_1: "ZOOM_OUT_1",
+        PAUSE_1: "PAUSE_1",
+        ZOOM_IN_TO_CORE: "ZOOM_IN_TO_CORE",
+        PAUSE_2: "PAUSE_2",
+        ZOOM_OUT_2: "ZOOM_OUT_2",
+        COMPLETE: "COMPLETE",
+      };
+      let currentPhase = animationPhases.ZOOM_OUT_1;
+      let phaseStartTime = 0;
+      let isIntroAnimationActive = true;
+      let userInteracted = false;
+      let totalParticleCount = 0;
 
-        const fragmentShader = 
-            'uniform sampler2D baseTexture;' +
-            'uniform float bloomStrength;' +
-            'varying vec2 vUv;' +
-            'void main() {' +
-                'vec4 color = texture2D(baseTexture, vUv);' +
-                'color.rgb *= (1.0 + bloomStrength);' +
-                'gl_FragColor = color;' +
-            '}';
+      // Required shaders
+      const vertexShader =
+        "varying vec2 vUv;" +
+        "void main() {" +
+        "vUv = uv;" +
+        "gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);" +
+        "}";
 
-        function init() {
-            // Initialize scene and other components
-            scene = new THREE.Scene();
-            scene.fog = new THREE.Fog(0x000000, 1000, 10000);
+      const fragmentShader =
+        "uniform sampler2D baseTexture;" +
+        "uniform float bloomStrength;" +
+        "varying vec2 vUv;" +
+        "void main() {" +
+        "vec4 color = texture2D(baseTexture, vUv);" +
+        "color.rgb *= (1.0 + bloomStrength);" +
+        "gl_FragColor = color;" +
+        "}";
 
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 10000);
-            camera.position.set(0, 0, 2000);
+      function init() {
+        scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x000000, 1000, 10000);
 
-            clock = new THREE.Clock();
+        camera = new THREE.PerspectiveCamera(
+          75,
+          window.innerWidth / window.innerHeight,
+          1,
+          10000
+        );
+        camera.position.set(0, 0, 2000);
+        camera.lookAt(0, 0, 0);
 
-            renderer = new THREE.WebGLRenderer({ 
-                antialias: true,
-                powerPreference: "high-performance"
-            });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setClearColor(0x000000);
-            renderer.autoClear = false;
-            document.getElementById('canvas-container').appendChild(renderer.domElement);
+        clock = new THREE.Clock();
 
-            // Set up bloom effect once
-            setupBloomEffect();
+        renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          powerPreference: "high-performance",
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x000000);
+        renderer.autoClear = false;
+        document
+          .getElementById("canvas-container")
+          .appendChild(renderer.domElement);
 
+        setupBloomEffect();
+
+        // Load star texture and then create particle text and other elements
+        const textureLoader = new THREE.TextureLoader();
+        starTexture = textureLoader.load(
+          "textures/star.png",
+          () => {
+            document.getElementById("loading").style.display = "none";
+            // Tăng mật độ hạt => increase particleDensity
+            createParticleText("Như Ý", 130, 0.9); // text, size, particleDensity
             createStarField();
-            createGalaxyCore();
-            createMultipleNebulaRings(); // Create multiple nebula rings
-
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.2);
-            scene.add(ambientLight);
-
-            const pointLight = new THREE.PointLight(0xffffff, 1, 0);
-            pointLight.position.set(0, 0, 0);
-            scene.add(pointLight);
-
-            setupControls();
-            // Start the animation loop
-            animate();
+            createMultipleNebulaRings();
             updateParticleCountDisplay();
+          },
+          undefined,
+          (err) => {
+            console.error("Error loading texture:", err);
+            // Fallback texture if loading fails
+            const canvas = document.createElement("canvas");
+            canvas.width = 32;
+            canvas.height = 32;
+            const ctx = canvas.getContext("2d");
+            const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            gradient.addColorStop(0, "rgba(255, 255, 255, 1)");
+            gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 32, 32);
+            starTexture = new THREE.CanvasTexture(canvas);
+            document.getElementById("loading").style.display = "none";
+            createParticleText("Như Ý", 130, 0.9);
+            createStarField();
+            createMultipleNebulaRings();
+            updateParticleCountDisplay();
+          }
+        );
+
+        // Add a subtle ambient light
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        scene.add(ambientLight);
+
+        setupControls();
+        animate();
+        updateDistance();
+      }
+
+      function setupBloomEffect() {
+        renderTarget = new THREE.WebGLRenderTarget(
+          window.innerWidth,
+          window.innerHeight,
+          {
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+            format: THREE.RGBAFormat,
+            encoding: THREE.sRGBEncoding,
+          }
+        );
+
+        bloomMaterial = new THREE.ShaderMaterial({
+          uniforms: {
+            baseTexture: { value: null },
+            bloomStrength: { value: BLOOM_STRENGTH },
+          },
+          vertexShader: vertexShader,
+          fragmentShader: fragmentShader,
+          defines: {},
+        });
+
+        const bloomGeometry = new THREE.PlaneGeometry(2, 2);
+        const bloomMesh = new THREE.Mesh(bloomGeometry, bloomMaterial);
+        bloomMesh.frustumCulled = false;
+
+        bloomScene = new THREE.Scene();
+        bloomScene.add(bloomMesh);
+
+        bloomCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      }
+
+      // New function to create particle text, replacing the galaxy core
+      function createParticleText(text, size, particleDensity) {
+        const tempCanvas = document.createElement("canvas");
+        const tempCtx = tempCanvas.getContext("2d");
+        const resolution = 100; // Độ phân giải cho canvas tạm thời
+
+        // Điều chỉnh chiều rộng canvas dựa trên độ dài của văn bản
+        tempCanvas.width = resolution * text.length * 0.6;
+        tempCanvas.height = resolution;
+
+        tempCtx.font = `bold ${resolution * 0.8}px Arial`;
+        tempCtx.fillStyle = "white";
+        tempCtx.textAlign = "center";
+        tempCtx.textBaseline = "middle";
+        tempCtx.fillText(text, tempCanvas.width / 2, tempCanvas.height / 2);
+
+        const imageData = tempCtx.getImageData(
+          0,
+          0,
+          tempCanvas.width,
+          tempCanvas.height
+        );
+        const data = imageData.data;
+
+        const positions = [];
+        const colors = [];
+
+        const scaleFactor = size / resolution; // Tỷ lệ từ pixel canvas sang đơn vị 3D
+
+        for (
+          let y = 0;
+          y < tempCanvas.height;
+          y += Math.max(1, Math.floor(1 / particleDensity))
+        ) {
+          for (
+            let x = 0;
+            x < tempCanvas.width;
+            x += Math.max(1, Math.floor(1 / particleDensity))
+          ) {
+            const i = (y * tempCanvas.width + x) * 4;
+            if (data[i + 3] > 0) {
+              // Nếu kênh alpha không trong suốt
+              const px = (x - tempCanvas.width / 2) * scaleFactor;
+              const py = (tempCanvas.height / 2 - y) * scaleFactor;
+              const pz = (Math.random() - 0.5) * size * 0.1;
+
+              positions.push(px, py, pz);
+
+              // Màu ngẫu nhiên cho hiệu ứng tinh vân (màu đỏ)
+              const color = new THREE.Color();
+              // Thay đổi màu sắc của hạt thành màu đỏ
+              color.setHSL(0, 0.8, Math.random() * 0.5 + 0.5); // HSL cho màu đỏ
+              colors.push(color.r, color.g, color.b);
+            }
+          }
         }
 
-        // Initialize objects for bloom effect
-        function setupBloomEffect() {
-            renderTarget = new THREE.WebGLRenderTarget(
-                window.innerWidth,
-                window.innerHeight,
-                {
-                    minFilter: THREE.LinearFilter,
-                    magFilter: THREE.LinearFilter,
-                    format: THREE.RGBAFormat,
-                    encoding: THREE.sRGBEncoding
-                }
-            );
+        const particleGeometry = new THREE.BufferGeometry();
+        particleGeometry.setAttribute(
+          "position",
+          new THREE.Float32BufferAttribute(positions, 3)
+        );
+        particleGeometry.setAttribute(
+          "color",
+          new THREE.Float32BufferAttribute(colors, 3)
+        );
 
-            bloomMaterial = new THREE.ShaderMaterial({
-                uniforms: {
-                    baseTexture: { value: null },
-                    bloomStrength: { value: BLOOM_STRENGTH }
-                },
-                vertexShader: vertexShader,
-                fragmentShader: fragmentShader,
-                defines: {}
-            });
+        const particleMaterial = new THREE.PointsMaterial({
+          size: 5,
+          sizeAttenuation: true,
+          vertexColors: true,
+          blending: THREE.AdditiveBlending,
+          transparent: true,
+          opacity: 0.8,
+          map: starTexture,
+          alphaTest: 0.01,
+          depthWrite: false,
+        });
 
-            const bloomGeometry = new THREE.PlaneGeometry(2, 2);
-            const bloomMesh = new THREE.Mesh(bloomGeometry, bloomMaterial);
-            bloomMesh.frustumCulled = false;
-            
-            bloomScene = new THREE.Scene();
-            bloomScene.add(bloomMesh);
+        textMesh = new THREE.Points(particleGeometry, particleMaterial);
+        textMesh.position.set(0, 0, 0); // Đặt văn bản vào trung tâm của cảnh
+        scene.add(textMesh);
+        totalParticleCount += positions.length / 3;
+      }
 
-            bloomCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      function updateCameraAnimation() {
+        if (!isIntroAnimationActive || userInteracted) {
+          return;
         }
 
-        function updateCameraAnimation() {
-            if (!isIntroAnimationActive || userInteracted) {
-                return;
+        const elapsedTime = clock.getElapsedTime() - phaseStartTime;
+
+        switch (currentPhase) {
+          case animationPhases.ZOOM_OUT_1:
+            if (elapsedTime < 3) {
+              const progress = elapsedTime / 3;
+              const easeProgress = 1 - Math.pow(1 - progress, 3);
+              camera.position.z = 2000 - 1000 * easeProgress;
+              cameraRadius = camera.position.z;
+              updateDistance();
+            } else {
+              camera.position.z = 1000;
+              cameraRadius = 1000;
+              currentPhase = animationPhases.PAUSE_1;
+              phaseStartTime = clock.getElapsedTime();
+              document.getElementById("status").textContent = "Tạm dừng 1";
             }
+            break;
 
-            const elapsedTime = clock.getElapsedTime() - phaseStartTime;
-
-            switch (currentPhase) {
-                case animationPhases.ZOOM_OUT_1:
-                    if (elapsedTime < 3) {
-                        const progress = elapsedTime / 3;
-                        const easeProgress = 1 - Math.pow(1 - progress, 3);
-                        camera.position.z = 2000 - (1000 * easeProgress);
-                        cameraRadius = camera.position.z;
-                        updateDistance();
-                    } else {
-                        camera.position.z = 1000;
-                        cameraRadius = 1000;
-                        currentPhase = animationPhases.PAUSE_1;
-                        phaseStartTime = clock.getElapsedTime();
-                        document.getElementById('status').textContent = 'Tạm dừng 1';
-                    }
-                    break;
-
-                case animationPhases.PAUSE_1:
-                    if (elapsedTime >= 2) {
-                        currentPhase = animationPhases.ZOOM_IN_TO_CORE;
-                        phaseStartTime = clock.getElapsedTime();
-                        document.getElementById('status').textContent = 'Zoom vào lõi';
-                    }
-                    break;
-
-                case animationPhases.ZOOM_IN_TO_CORE:
-                    if (elapsedTime < 4) {
-                        const progress = elapsedTime / 4;
-                        const easeProgress = progress * progress * (3 - 2 * progress);
-                        camera.position.z = 1000 - (700 * easeProgress);
-                        cameraRadius = camera.position.z;
-                        updateDistance();
-                    } else {
-                        camera.position.z = 300;
-                        cameraRadius = 300;
-                        currentPhase = animationPhases.PAUSE_2;
-                        phaseStartTime = clock.getElapsedTime();
-                        document.getElementById('status').textContent = 'Tạm dừng 2';
-                    }
-                    break;
-
-                case animationPhases.PAUSE_2:
-                    if (elapsedTime >= 2) {
-                        currentPhase = animationPhases.ZOOM_OUT_2;
-                        phaseStartTime = clock.getElapsedTime();
-                        document.getElementById('status').textContent = 'Zoom ra';
-                    }
-                    break;
-
-                case animationPhases.ZOOM_OUT_2:
-                    if (elapsedTime < 3) {
-                        const progress = elapsedTime / 3;
-                        const easeProgress = progress * progress * (3 - 2 * progress);
-                        camera.position.z = 300 + (500 * easeProgress);
-                        cameraRadius = camera.position.z;
-                        updateDistance();
-                    } else {
-                        camera.position.z = 800;
-                        cameraRadius = 800;
-                        currentPhase = animationPhases.COMPLETE;
-                        isIntroAnimationActive = false;
-                        document.getElementById('status').textContent = 'Đang xoay';
-                    }
-                    break;
+          case animationPhases.PAUSE_1:
+            if (elapsedTime >= 2) {
+              currentPhase = animationPhases.ZOOM_IN_TO_CORE;
+              phaseStartTime = clock.getElapsedTime();
+              document.getElementById("status").textContent = "Zoom vào chữ";
             }
+            break;
 
-            camera.position.x = Math.cos(cameraAngle) * cameraRadius;
-            camera.position.z = Math.sin(cameraAngle) * cameraRadius;
-            camera.lookAt(0, 0, 0);
+          case animationPhases.ZOOM_IN_TO_CORE:
+            if (elapsedTime < 4) {
+              const progress = elapsedTime / 4;
+              const easeProgress = progress * progress * (3 - 2 * progress);
+              camera.position.z = 1000 - 800 * easeProgress; // Adjust zoom to focus on text
+              cameraRadius = camera.position.z;
+              updateDistance();
+            } else {
+              camera.position.z = 200; // Final zoom-in position
+              cameraRadius = 200;
+              currentPhase = animationPhases.PAUSE_2;
+              phaseStartTime = clock.getElapsedTime();
+              document.getElementById("status").textContent = "Tạm dừng 2";
+            }
+            break;
+
+          case animationPhases.PAUSE_2:
+            if (elapsedTime >= 2) {
+              currentPhase = animationPhases.ZOOM_OUT_2;
+              phaseStartTime = clock.getElapsedTime();
+              document.getElementById("status").textContent = "Zoom ra";
+            }
+            break;
+
+          case animationPhases.ZOOM_OUT_2:
+            if (elapsedTime < 3) {
+              const progress = elapsedTime / 3;
+              const easeProgress = progress * progress * (3 - 2 * progress);
+              camera.position.z = 200 + 600 * easeProgress; // Adjust zoom to final position
+              cameraRadius = camera.position.z;
+              updateDistance();
+            } else {
+              camera.position.z = 800;
+              cameraRadius = 800;
+              currentPhase = animationPhases.COMPLETE;
+              isIntroAnimationActive = false;
+              document.getElementById("status").textContent = "Đang xoay";
+            }
+            break;
         }
 
-        function createStarField() {
-            const starGeometry = new THREE.BufferGeometry();
-            const starCount = 50000;
-            totalParticleCount += starCount;
-            
-            const positions = new Float32Array(starCount * 3);
-            const colors = new Float32Array(starCount * 3);
-            const sizes = new Float32Array(starCount);
+        camera.position.x = Math.cos(cameraAngle) * cameraRadius;
+        camera.position.z = Math.sin(cameraAngle) * cameraRadius;
+        camera.lookAt(0, 0, 0);
+      }
 
-            for (let i = 0; i < starCount; i++) {
-                let radius, theta, phi;
-                
-                // Phân bố ngôi sao trong một quả cầu lớn
-                radius = Math.pow(Math.random(), 0.15) * 700;
-                theta = Math.random() * Math.PI * 2;
-                phi = Math.acos(2 * Math.random() - 1);
-                
-                positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-                positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-                positions[i * 3 + 2] = radius * Math.cos(phi);
+      function createStarField() {
+        const starGeometry = new THREE.BufferGeometry();
+        const starCount = 50000;
+        totalParticleCount += starCount;
 
-                const centerIntensity = Math.pow(1 - (radius / 800), 1.5);
-                colors[i * 3] = 1.0 + centerIntensity * 0.3;
-                colors[i * 3 + 1] = 0.2 + centerIntensity * 0.4;
-                colors[i * 3 + 2] = 0.8 + centerIntensity * 0.4;
+        const positions = new Float32Array(starCount * 3);
+        const colors = new Float32Array(starCount * 3);
 
-                const centerDist = radius / 800;
-                sizes[i] = (Math.random() * 4 + 5) * Math.pow(1 - centerDist, 1.2) * 8;
-            }
+        for (let i = 0; i < starCount; i++) {
+          let radius, theta, phi;
 
-            starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+          // Phân bố ngôi sao trong một quả cầu lớn
+          radius = Math.pow(Math.random(), 0.15) * 700;
+          theta = Math.random() * Math.PI * 2;
+          phi = Math.acos(2 * Math.random() - 1);
 
-            const textureLoader = new THREE.TextureLoader();
-            starTexture = textureLoader.load(
-                'textures/star.png',
-                () => {
-                    document.getElementById('loading').style.display = 'none';
-                },
-                undefined,
-                (err) => {
-                    console.error('Error loading texture:', err);
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 32;
-                    canvas.height = 32;
-                    const ctx = canvas.getContext('2d');
-                    const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
-                    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-                    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-                    ctx.fillStyle = gradient;
-                    ctx.fillRect(0, 0, 32, 32);
-                    starTexture = new THREE.CanvasTexture(canvas);
-                    document.getElementById('loading').style.display = 'none';
-                }
-            );
-            
-            const starMaterial = new THREE.PointsMaterial({
-                size: 20,
-                sizeAttenuation: true,
-                vertexColors: true,
-                blending: THREE.AdditiveBlending,
-                transparent: true,
-                opacity: 0.8,
-                map: starTexture,
-                alphaTest: 0.01,
-                depthWrite: false
-            });
+          positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+          positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+          positions[i * 3 + 2] = radius * Math.cos(phi);
 
-            starField = new THREE.Points(starGeometry, starMaterial);
-            scene.add(starField);
+          const centerIntensity = Math.pow(1 - radius / 800, 1.5);
+          colors[i * 3] = 1.0 + centerIntensity * 0.3;
+          colors[i * 3 + 1] = 0.2 + centerIntensity * 0.4;
+          colors[i * 3 + 2] = 0.8 + centerIntensity * 0.4;
         }
 
-        // A function to create a single nebula ring
-        function createNebulaRing(innerRadius, outerRadius, particleCount, thickness) {
-            const nebulaGeometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(particleCount * 3);
-            const colors = new Float32Array(particleCount * 3);
+        starGeometry.setAttribute(
+          "position",
+          new THREE.BufferAttribute(positions, 3)
+        );
+        starGeometry.setAttribute(
+          "color",
+          new THREE.BufferAttribute(colors, 3)
+        );
 
-            for (let i = 0; i < particleCount; i++) {
-                const radius = innerRadius + Math.pow(Math.random(), 2) * (outerRadius - innerRadius);
-                const angle = Math.random() * Math.PI * 2;
-                const z = (Math.random() - 0.5) * thickness; 
+        const starMaterial = new THREE.PointsMaterial({
+          size: 20,
+          sizeAttenuation: true,
+          vertexColors: true,
+          blending: THREE.AdditiveBlending,
+          transparent: true,
+          opacity: 0.8,
+          map: starTexture,
+          alphaTest: 0.01,
+          depthWrite: false,
+        });
 
-                positions[i * 3] = radius * Math.cos(angle);
-                positions[i * 3 + 1] = radius * Math.sin(angle);
-                positions[i * 3 + 2] = z;
-                
-                const color = new THREE.Color();
-                // Match the core's color scheme (orange/pink)
-                color.setHSL(Math.random() * 0.1 + 0.95, 0.9, Math.random() * 0.5 + 0.5); // HSL for reddish/pinkish colors
-                
-                colors[i * 3] = color.r;
-                colors[i * 3 + 1] = color.g;
-                colors[i * 3 + 2] = color.b;
-            }
+        starField = new THREE.Points(starGeometry, starMaterial);
+        scene.add(starField);
+      }
 
-            nebulaGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            nebulaGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            
-            const nebulaMaterial = new THREE.PointsMaterial({
-                size: 20, 
-                sizeAttenuation: true,
-                vertexColors: true,
-                blending: THREE.AdditiveBlending,
-                transparent: true,
-                opacity: 0.4, 
-                map: starTexture, 
-                alphaTest: 0.01,
-                depthWrite: false
-            });
+      // A function to create a single nebula ring
+      function createNebulaRing(
+        innerRadius,
+        outerRadius,
+        particleCount,
+        thickness
+      ) {
+        const nebulaGeometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(particleCount * 3);
+        const colors = new Float32Array(particleCount * 3);
 
-            const nebulaRing = new THREE.Points(nebulaGeometry, nebulaMaterial);
-            return nebulaRing;
+        for (let i = 0; i < particleCount; i++) {
+          const radius =
+            innerRadius +
+            Math.pow(Math.random(), 2) * (outerRadius - innerRadius);
+          const angle = Math.random() * Math.PI * 2;
+          const z = (Math.random() - 0.5) * thickness;
+
+          positions[i * 3] = radius * Math.cos(angle);
+          positions[i * 3 + 1] = radius * Math.sin(angle);
+          positions[i * 3 + 2] = z;
+
+          const color = new THREE.Color();
+          // Match the core's color scheme (red/orange)
+          color.setHSL(Math.random() * 0.05, 0.8, Math.random() * 0.5 + 0.5); // HSL for reddish/orange colors
+
+          colors[i * 3] = color.r;
+          colors[i * 3 + 1] = color.g;
+          colors[i * 3 + 2] = color.b;
         }
 
-        // A function to create multiple nebula rings
-        function createMultipleNebulaRings() {
-            const ringCount = 3;
-            const baseInnerRadius = 800;
-            const baseOuterRadius = 1500;
-            const particleCountPerRing = 100000;
-            const ringThickness = 50;
+        nebulaGeometry.setAttribute(
+          "position",
+          new THREE.BufferAttribute(positions, 3)
+        );
+        nebulaGeometry.setAttribute(
+          "color",
+          new THREE.BufferAttribute(colors, 3)
+        );
 
-            for (let i = 0; i < ringCount; i++) {
-                const innerRadius = baseInnerRadius + i * 200;
-                const outerRadius = baseOuterRadius + i * 200;
-                const ring = createNebulaRing(innerRadius, outerRadius, particleCountPerRing, ringThickness);
-                nebulaRings.push(ring);
-                scene.add(ring);
-                totalParticleCount += particleCountPerRing;
-            }
+        const nebulaMaterial = new THREE.PointsMaterial({
+          size: 20,
+          sizeAttenuation: true,
+          vertexColors: true,
+          blending: THREE.AdditiveBlending,
+          transparent: true,
+          opacity: 0.4,
+          map: starTexture,
+          alphaTest: 0.01,
+          depthWrite: false,
+        });
+
+        const nebulaRing = new THREE.Points(nebulaGeometry, nebulaMaterial);
+        return nebulaRing;
+      }
+
+      // A function to create multiple nebula rings
+      function createMultipleNebulaRings() {
+        const ringCount = 3;
+        const baseInnerRadius = 800;
+        const baseOuterRadius = 1500;
+        const particleCountPerRing = 100000;
+        const ringThickness = 50;
+
+        for (let i = 0; i < ringCount; i++) {
+          const innerRadius = baseInnerRadius + i * 200;
+          const outerRadius = baseOuterRadius + i * 200;
+          const ring = createNebulaRing(
+            innerRadius,
+            outerRadius,
+            particleCountPerRing,
+            ringThickness
+          );
+          nebulaRings.push(ring);
+          scene.add(ring);
+          totalParticleCount += particleCountPerRing;
+        }
+      }
+
+      function animate() {
+        if (!isPaused) {
+          animationId = requestAnimationFrame(animate);
         }
 
+        const time = Date.now() * 0.001;
 
-        function createGalaxyCore() {
-            const coreGeometry = new THREE.SphereGeometry(50, 32, 32);
-            const coreMaterial = new THREE.ShaderMaterial({
-                uniforms: {
-                    time: { value: 0 }
-                },
-                vertexShader: 
-                    'varying vec3 vPosition;' +
-                    'void main() {' +
-                        'vPosition = position;' +
-                        'gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);' +
-                    '}',
-                fragmentShader: 
-                    'varying vec3 vPosition;' +
-                    'uniform float time;' +
-                    'void main() {' +
-                        'float distance = length(vPosition) / 50.0;' +
-                        'float glow = 1.0 - distance;' +
-                        'glow = pow(glow, 2.0);' +
-                        'vec3 color = mix(vec3(1.0, 0.5, 0.0), vec3(1.0, 0.2, 0.8), sin(time * 0.5) * 0.5 + 0.5);' +
-                        'gl_FragColor = vec4(color, glow * 0.8);' +
-                    '}',
-                blending: THREE.AdditiveBlending,
-                transparent: true,
-                side: THREE.DoubleSide
-            });
+        updateCameraAnimation();
 
-            galaxyCore = new THREE.Mesh(coreGeometry, coreMaterial);
-            scene.add(galaxyCore);
-            totalParticleCount += 1;
+        if (starField) {
+          starField.rotation.y += 0.0002;
         }
 
-        function animate() {
-            if (!isPaused) {
-                animationId = requestAnimationFrame(animate);
-            }
+        nebulaRings.forEach((ring, index) => {
+          ring.rotation.y += 0.0005 * (index + 1); // Make outer rings spin faster
+        });
 
-            const time = Date.now() * 0.001;
-
-            updateCameraAnimation();
-
-            if (galaxyCore && galaxyCore.material.uniforms) {
-                galaxyCore.material.uniforms.time.value = time;
-            }
-
-            if (starField) {
-                starField.rotation.y += 0.0002;
-            }
-
-            nebulaRings.forEach((ring, index) => {
-                ring.rotation.y += 0.0005 * (index + 1); // Make outer rings spin faster
-            });
-            
-            if (galaxyCore) {
-                galaxyCore.rotation.y += 0.001;
-            }
-
-            if (!isPaused && !isIntroAnimationActive) {
-                cameraAngle += autoRotationSpeed;
-                camera.position.x = Math.cos(cameraAngle) * cameraRadius;
-                camera.position.z = Math.sin(cameraAngle) * cameraRadius;
-                camera.lookAt(0, 0, 0);
-            }
-
-            // Render first to the render target
-            renderer.setRenderTarget(renderTarget);
-            renderer.clear();
-            renderer.render(scene, camera);
-            
-            // Render second to apply bloom effect
-            bloomMaterial.uniforms.baseTexture.value = renderTarget.texture;
-            renderer.setRenderTarget(null);
-            renderer.clear();
-            renderer.render(bloomScene, bloomCamera);
+        if (textMesh) {
+          textMesh.rotation.y += 0.002;
         }
 
-        function setupControls() {
-            let isDragging = false;
-            let previousTouchDistance = 0;
-            let previousMousePosition = { x: 0, y: 0 };
-            let cameraTarget = new THREE.Vector3(0, 0, 0);
+        if (!isPaused && !isIntroAnimationActive) {
+          cameraAngle += autoRotationSpeed;
+          camera.position.x = Math.cos(cameraAngle) * cameraRadius;
+          camera.position.z = Math.sin(cameraAngle) * cameraRadius;
+          camera.lookAt(0, 0, 0);
+        }
 
-            renderer.domElement.addEventListener('touchstart', (event) => {
-                event.preventDefault();
-                userInteracted = true;
-                isIntroAnimationActive = false;
-                
-                if (event.touches.length === 1) {
-                    const touch = event.touches[0];
-                    previousMousePosition = { x: touch.clientX, y: touch.clientY };
-                    isDragging = true;
-                } else if (event.touches.length === 2) {
-                    const touch1 = event.touches[0];
-                    const touch2 = event.touches[1];
-                    const dx = touch1.clientX - touch2.clientX;
-                    const dy = touch1.clientY - touch2.clientY;
-                    previousTouchDistance = Math.sqrt(dx * dx + dy * dy);
-                }
-            }, { passive: false });
+        // Render first to the render target
+        renderer.setRenderTarget(renderTarget);
+        renderer.clear();
+        renderer.render(scene, camera);
 
-            renderer.domElement.addEventListener('touchmove', (event) => {
-                event.preventDefault();
-                
-                if (event.touches.length === 1 && isDragging) {
-                    const touch = event.touches[0];
-                    const deltaMove = {
-                        x: touch.clientX - previousMousePosition.x,
-                        y: touch.clientY - previousMousePosition.y
-                    };
+        // Render second to apply bloom effect
+        bloomMaterial.uniforms.baseTexture.value = renderTarget.texture;
+        renderer.setRenderTarget(null);
+        renderer.clear();
+        renderer.render(bloomScene, bloomCamera);
+      }
 
-                    cameraAngle -= deltaMove.x * 0.01;
-                    const verticalAngle = Math.max(-Math.PI/3, Math.min(Math.PI/3, deltaMove.y * 0.01));
-                    
-                    camera.position.x = Math.cos(cameraAngle) * cameraRadius;
-                    camera.position.z = Math.sin(cameraAngle) * cameraRadius;
-                    camera.position.y = Math.max(-500, Math.min(500, camera.position.y + verticalAngle * 50));
-                    camera.lookAt(cameraTarget);
+      function setupControls() {
+        let isDragging = false;
+        let previousTouchDistance = 0;
+        let previousMousePosition = { x: 0, y: 0 };
+        let cameraTarget = new THREE.Vector3(0, 0, 0);
 
-                    previousMousePosition = { x: touch.clientX, y: touch.clientY };
-                } else if (event.touches.length === 2) {
-                    const touch1 = event.touches[0];
-                    const touch2 = event.touches[1];
-                    const dx = touch1.clientX - touch2.clientX;
-                    const dy = touch1.clientY - touch2.clientY;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (previousTouchDistance > 0) {
-                        const scale = distance / previousTouchDistance;
-                        cameraRadius = Math.max(200, Math.min(3000, cameraRadius / scale));
-                        
-                        camera.position.x = Math.cos(cameraAngle) * cameraRadius;
-                        camera.position.z = Math.sin(cameraAngle) * cameraRadius;
-                        camera.lookAt(cameraTarget);
-                        
-                        updateDistance();
-                    }
-                    previousTouchDistance = distance;
-                }
-            }, { passive: false });
+        renderer.domElement.addEventListener(
+          "touchstart",
+          (event) => {
+            event.preventDefault();
+            userInteracted = true;
+            isIntroAnimationActive = false;
 
-            renderer.domElement.addEventListener('touchend', (event) => {
-                event.preventDefault();
-                if (event.touches.length === 0) {
-                    if (isDragging && !previousMousePosition) {
-                        togglePause();
-                    }
-                    isDragging = false;
-                    previousTouchDistance = 0;
-                }
-            }, { passive: false });
+            if (event.touches.length === 1) {
+              const touch = event.touches[0];
+              previousMousePosition = { x: touch.clientX, y: touch.clientY };
+              isDragging = true;
+            } else if (event.touches.length === 2) {
+              const touch1 = event.touches[0];
+              const touch2 = event.touches[1];
+              const dx = touch1.clientX - touch2.clientX;
+              const dy = touch1.clientY - touch2.clientY;
+              previousTouchDistance = Math.sqrt(dx * dx + dy * dy);
+            }
+          },
+          { passive: false }
+        );
 
-            renderer.domElement.addEventListener('mousedown', (event) => {
-                if (event.button === 0) {
-                    userInteracted = true;
-                    isIntroAnimationActive = false;
-                    isDragging = true;
-                    previousMousePosition = { x: event.clientX, y: event.clientY };
-                }
-            });
+        renderer.domElement.addEventListener(
+          "touchmove",
+          (event) => {
+            event.preventDefault();
 
-            renderer.domElement.addEventListener('mousemove', (event) => {
-                if (isDragging) {
-                    const deltaMove = {
-                        x: event.clientX - previousMousePosition.x,
-                        y: event.clientY - previousMousePosition.y
-                    };
+            if (event.touches.length === 1 && isDragging) {
+              const touch = event.touches[0];
+              const deltaMove = {
+                x: touch.clientX - previousMousePosition.x,
+                y: touch.clientY - previousMousePosition.y,
+              };
 
-                    cameraAngle -= deltaMove.x * 0.01;
-                    const verticalAngle = deltaMove.y * 0.01;
-                    
-                    camera.position.x = Math.cos(cameraAngle) * cameraRadius;
-                    camera.position.z = Math.sin(cameraAngle) * cameraRadius;
-                    camera.position.y = Math.max(-500, Math.min(500, camera.position.y + verticalAngle * 50));
-                    camera.lookAt(cameraTarget);
-                }
+              cameraAngle -= deltaMove.x * 0.01;
+              const verticalAngle = Math.max(
+                -Math.PI / 3,
+                Math.min(Math.PI / 3, deltaMove.y * 0.01)
+              );
 
-                previousMousePosition = { x: event.clientX, y: event.clientY };
-            });
+              camera.position.x = Math.cos(cameraAngle) * cameraRadius;
+              camera.position.z = Math.sin(cameraAngle) * cameraRadius;
+              camera.position.y = Math.max(
+                -500,
+                Math.min(500, camera.position.y + verticalAngle * 50)
+              );
+              camera.lookAt(cameraTarget);
 
-            renderer.domElement.addEventListener('mouseup', () => {
-                isDragging = false;
-            });
+              previousMousePosition = { x: touch.clientX, y: touch.clientY };
+            } else if (event.touches.length === 2) {
+              const touch1 = event.touches[0];
+              const touch2 = event.touches[1];
+              const dx = touch1.clientX - touch2.clientX;
+              const dy = touch1.clientY - touch2.clientY;
+              const distance = Math.sqrt(dx * dx + dy * dy);
 
-            renderer.domElement.addEventListener('wheel', (event) => {
-                event.preventDefault();
-                userInteracted = true;
-                isIntroAnimationActive = false;
-                
-                const zoomFactor = event.deltaY * 0.001;
-                cameraRadius = Math.max(200, Math.min(3000, cameraRadius + zoomFactor * 100));
-                
+              if (previousTouchDistance > 0) {
+                const scale = distance / previousTouchDistance;
+                cameraRadius = Math.max(
+                  200,
+                  Math.min(3000, cameraRadius / scale)
+                );
+
                 camera.position.x = Math.cos(cameraAngle) * cameraRadius;
                 camera.position.z = Math.sin(cameraAngle) * cameraRadius;
                 camera.lookAt(cameraTarget);
-                
+
                 updateDistance();
-            }, { passive: false });
-
-            document.addEventListener('keydown', (event) => {
-                if (event.code === 'Space') {
-                    event.preventDefault();
-                    togglePause();
-                }
-            });
-
-            renderer.domElement.addEventListener('contextmenu', (event) => {
-                event.preventDefault();
-            });
-        }
-
-        function togglePause() {
-            isPaused = !isPaused;
-            document.getElementById('status').textContent = isPaused ? 'Tạm dừng' : (isIntroAnimationActive ? 'Animation' : 'Đang xoay');
-            if (!isPaused) {
-                animate();
+              }
+              previousTouchDistance = distance;
             }
-        }
+          },
+          { passive: false }
+        );
 
-        function updateDistance() {
-            document.getElementById('distance').textContent = Math.round(cameraRadius).toLocaleString();
-        }
-
-        function updateParticleCountDisplay() {
-            document.getElementById('star-count').textContent = totalParticleCount.toLocaleString();
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            // Cập nhật lại kích thước của render target
-            if (renderTarget) {
-                renderTarget.setSize(window.innerWidth, window.innerHeight);
+        renderer.domElement.addEventListener(
+          "touchend",
+          (event) => {
+            event.preventDefault();
+            if (event.touches.length === 0) {
+              if (isDragging && !previousMousePosition) {
+                togglePause();
+              }
+              isDragging = false;
+              previousTouchDistance = 0;
             }
-        }
+          },
+          { passive: false }
+        );
 
-        window.addEventListener('resize', onWindowResize);
-        window.addEventListener('load', () => {
-            init();
+        renderer.domElement.addEventListener("mousedown", (event) => {
+          if (event.button === 0) {
+            userInteracted = true;
+            isIntroAnimationActive = false;
+            isDragging = true;
+            previousMousePosition = { x: event.clientX, y: event.clientY };
+          }
+        });
+
+        renderer.domElement.addEventListener("mousemove", (event) => {
+          if (isDragging) {
+            const deltaMove = {
+              x: event.clientX - previousMousePosition.x,
+              y: event.clientY - previousMousePosition.y,
+            };
+
+            cameraAngle -= deltaMove.x * 0.01;
+            const verticalAngle = deltaMove.y * 0.01;
+
+            camera.position.x = Math.cos(cameraAngle) * cameraRadius;
+            camera.position.z = Math.sin(cameraAngle) * cameraRadius;
+            camera.position.y = Math.max(
+              -500,
+              Math.min(500, camera.position.y + verticalAngle * 50)
+            );
+            camera.lookAt(cameraTarget);
+          }
+
+          previousMousePosition = { x: event.clientX, y: event.clientY };
+        });
+
+        renderer.domElement.addEventListener("mouseup", () => {
+          isDragging = false;
+        });
+
+        renderer.domElement.addEventListener(
+          "wheel",
+          (event) => {
+            event.preventDefault();
+            userInteracted = true;
+            isIntroAnimationActive = false;
+
+            const zoomFactor = event.deltaY * 0.001;
+            cameraRadius = Math.max(
+              200,
+              Math.min(3000, cameraRadius + zoomFactor * 100)
+            );
+
+            camera.position.x = Math.cos(cameraAngle) * cameraRadius;
+            camera.position.z = Math.sin(cameraAngle) * cameraRadius;
+            camera.lookAt(cameraTarget);
+
             updateDistance();
+          },
+          { passive: false }
+        );
+
+        document.addEventListener("keydown", (event) => {
+          if (event.code === "Space") {
+            event.preventDefault();
+            togglePause();
+          }
         });
 
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                isPaused = true;
-            } else {
-                if (!isPaused) {
-                    animate();
-                }
-            }
+        renderer.domElement.addEventListener("contextmenu", (event) => {
+          event.preventDefault();
         });
+      }
+
+      function togglePause() {
+        isPaused = !isPaused;
+        document.getElementById("status").textContent = isPaused
+          ? "Tạm dừng"
+          : isIntroAnimationActive
+          ? "Animation"
+          : "Đang xoay";
+        if (!isPaused) {
+          animate();
+        }
+      }
+
+      function updateDistance() {
+        document.getElementById("distance").textContent =
+          Math.round(cameraRadius).toLocaleString();
+      }
+
+      function updateParticleCountDisplay() {
+        document.getElementById("star-count").textContent =
+          totalParticleCount.toLocaleString();
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        if (renderTarget) {
+          renderTarget.setSize(window.innerWidth, window.innerHeight);
+        }
+      }
+
+      window.addEventListener("resize", onWindowResize);
+      window.addEventListener("load", () => {
+        init();
+        updateDistance();
+      });
+
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          isPaused = true;
+        } else {
+          if (!isPaused) {
+            animate();
+          }
+        }
+      });
     </script>
-</body>
+  </body>
 </html>
-
